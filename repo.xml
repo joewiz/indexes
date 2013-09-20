@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<meta xmlns="http://exist-db.org/xquery/repo">
+    <description>An application for browsing the configuration and contents of eXist-db indexes</description>
+    <author>Joe Wicentowski</author>
+    <website>http://github.com/joewiz/indexes</website>
+    <status>alpha</status>
+    <license>GNU-LGPL</license>
+    <copyright>true</copyright>
+    <type>application</type>
+    <target>indexes</target>
+    <prepare/>
+    <finish/>
+    <permissions user="index-user" password="" group="index-group" mode="rw-rw-r--"/>
+</meta>
