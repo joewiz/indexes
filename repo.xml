@@ -11,4 +11,13 @@
     <prepare/>
     <finish/>
     <permissions user="index-user" password="" group="index-group" mode="rw-rw-r--"/>
+    <changelog>
+        <change version="0.2">
+            <p xmlns="http://www.w3.org/1999/xhtml">Restructured app for streamlined landing page</p>
+        </change>
+        <change version="0.1">
+            <p xmlns="http://www.w3.org/1999/xhtml">Initial commit - a simple port of the old Browse
+                Indexes pane from the Admin Web Page</p>
+        </change>
+    </changelog>
 </meta>
