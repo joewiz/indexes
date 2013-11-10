@@ -65,81 +65,63 @@ declare variable $indexes:index-names :=
 (:
     Main function: outputs the page.
 :)
-declare function indexes:main($node as node(), $model as map(*)) {
-    let $xconfs := 
-        for $xconf in collection('/db/system/config/')/cc:collection[cc:index]
-        order by util:collection-name($xconf) 
-        return $xconf
+declare function indexes:summary($node as node(), $model as map(*)) {
+    let $xconfs := collection('/db/system/config/')/cc:collection[cc:index]
     return
         if (empty($xconfs)) then
-            
-            <div>
-                <h2>Browse Indexes</h2>
-                <p>No Index Configurations were found in the /db/system/config collection.</p>
-            </div>
-        
-        else if (empty($indexes:node-set)) then
-        
-            indexes:list-indexes($xconfs)
-        
+            <p>No Index Configurations were found in the /db/system/config collection.</p>
         else
-        
-            indexes:show-index-keys()
-};
-
-(:
-    Lists indexes.
-:)
-declare function indexes:list-indexes($xconfs) {
-    <div>
-        <h2>Browse Indexes</h2>
-        <p>This application lets you browse the index definitions that have been applied, 
-            as well as the "index keys" (the actual items stored in the index).</p>
-        <p>Browsing indexes on {count($xconfs)} collections:</p>
-        { indexes:xconf-to-table($xconfs) }
-    </div>
+            (
+            <p>Found index configurations for {count($xconfs)} collections:</p>,
+            <ol>{
+                for $xconf in $xconfs
+                let $xconf-collection-name := util:collection-name($xconf)
+                let $data-collection-name := substring-after(util:collection-name($xconf), '/db/system/config')
+                order by $xconf-collection-name
+                return
+                    <li><a href="collection.html?collection={$data-collection-name}">{$data-collection-name}</a></li>
+            }</ol>
+            )
 };
 
 (:
     Transforms an index definition into an HTML table.
 :)
-declare function indexes:xconf-to-table($xconfs as node()*) as item()* {
-    <table class="table table-bordered">{
-        for $xconf at $count in $xconfs
-        let $xconf-collection-name := util:collection-name($xconf)
-        let $data-collection-name := substring-after(util:collection-name($xconf), '/db/system/config')
-        order by $xconf-collection-name
-        return
-            <tr>
-                <th>{$count}. {$data-collection-name} {if (xmldb:collection-available($data-collection-name)) then () else ' (no data)'}
-                    (<a href="{concat(request:get-context-path(), '/apps/eXide/index.html?open=', $xconf-collection-name, '/', xmldb:get-child-resources($xconf-collection-name)[ends-with(., '.xconf')])}">Open .xconf file in eXide</a>)
-                </th>
-                <tr><td><table class="browse" cellpadding="2">
-                    <tr>
-                        <th>Item Indexed</th>
-                        <th>Index</th>
-                        <th>Instances</th>
-                        <th>Show Index Keys By</th>
-                    </tr>
-                    {
-                    for $entry in ( indexes:analyze-legacy-fulltext-indexes($xconf),
-                        indexes:analyze-lucene-indexes($xconf),
-                        indexes:analyze-range-indexes($xconf),
-                        indexes:analyze-ngram-indexes($xconf) )
-                    let $item := $entry/td[1]
-                    let $index := $entry/td[2]
-                    (: order by $index, $item :)
-                    return $entry
-                    }
-                </table></td></tr>
-            </tr>
-    }</table>
+declare function indexes:xconf-to-table($node as node(), $model as map(*)) as item()* {
+    let $data-collection-name := $indexes:collection
+    let $xconf-collection-name := concat('/db/system/config', $data-collection-name)
+    let $xconf := collection('/db/system/config')/cc:collection[util:collection-name(.) = $xconf-collection-name]
+    return
+        <div>
+            <p><a href="./index.html">Indexes</a> > <a href="./collection.html?collection={$data-collection-name}">{$data-collection-name}</a></p>
+            <h1>Index Configuration for {$data-collection-name}</h1>
+            <p><a href="{concat(request:get-context-path(), '/apps/eXide/index.html?open=', $xconf-collection-name, '/', xmldb:get-child-resources($xconf-collection-name)[ends-with(., '.xconf')])}">Open .xconf file in eXide</a></p>
+            {if (xmldb:collection-available($data-collection-name)) then () else <p>(no data)</p>}
+            <table class="table table-bordered browse" cellpadding="2">
+                <tr>
+                    <th>Item Indexed</th>
+                    <th>Index</th>
+                    <th>Instances</th>
+                    <th>Show Index Keys By</th>
+                </tr>
+                {
+                for $entry in ( indexes:analyze-legacy-fulltext-indexes($xconf),
+                    indexes:analyze-lucene-indexes($xconf),
+                    indexes:analyze-range-indexes($xconf),
+                    indexes:analyze-ngram-indexes($xconf) )
+                let $item := $entry/td[1]
+                let $index := $entry/td[2]
+                (: order by $index, $item :)
+                return $entry
+                }
+            </table>
+        </div>
 };
 
 (:
     Shows the index keys on a given nodeset or QName
 :)
-declare function indexes:show-index-keys() {
+declare function indexes:show-index-keys($node as node(), $model as map(*)) {
     let $query-start-time := util:system-time()
         
     let $keys := 
@@ -212,8 +194,8 @@ declare function indexes:show-index-keys() {
     return
     
         <div>
-            <h2>View Index Keys</h2>
-            <p><a href="{indexes:remove-parameter-names-except('')}">Select a different index</a></p>
+            <p><a href="index.html">Indexes</a> > <a href="collection.html{indexes:remove-parameter-names-except('collection')}">{$indexes:collection}</a> > <a href="{indexes:remove-parameter-names-except('')}">{indexes:index-name-to-label($indexes:index)} Index on {($indexes:node-name, $indexes:match)[1]}</a></p>
+            <h1>{indexes:index-name-to-label($indexes:index)} Index on {($indexes:node-name, $indexes:match)[1]}</h1>
             <p>{count($keys)} keys returned in {$query-duration}s</p>
             <p>Keys for the {indexes:index-name-to-label($indexes:index)} index defined on "{string-join(($indexes:node-name, $indexes:match), '')}" in the <a href="{concat('?collection=', $indexes:collection)}">{$indexes:collection}</a> collection, by {$indexes:show-keys-by}.</p>
             <form method="get" class="form-horizontal" action="{indexes:remove-parameter-names('start-value')}">
@@ -309,7 +291,7 @@ declare function indexes:analyze-lucene-indexes($xconf) {
                         if (empty($nodeset)) then ()
                         else
                             (
-                            <a href="{indexes:replace-parameters((
+                            <a href="index-keys.html{indexes:replace-parameters((
                                 if ($qname) then concat('node-name=', $qname) else concat('match=', $match)
                                 , 
                                 concat('collection=', $collection)
@@ -321,7 +303,7 @@ declare function indexes:analyze-lucene-indexes($xconf) {
                             , 
                             ', '
                             ,
-                            <a href="{indexes:replace-parameters((
+                            <a href="index-keys.html{indexes:replace-parameters((
                                 if ($qname) then concat('node-name=', $qname) else concat('match=', $match)
                                 , 
                                 concat('collection=', $collection)
@@ -375,7 +357,7 @@ declare function indexes:analyze-legacy-fulltext-indexes($xconf) {
                     <td>{$qname}</td>
                     <td>{$index-label} {if ($mixed) then '(mixed)' else ()}</td>
                     <td>{count(util:eval(concat('collection(', $collection, ')//', $qname)))}</td>
-                    <td><a href="{indexes:replace-parameters((
+                    <td><a href="index-keys.html{indexes:replace-parameters((
                             (:if ($qname) then:) concat('node-name=', $qname) (:else concat('match=', $match):)
                             , 
                             concat('collection=', $collection)
@@ -428,7 +410,7 @@ declare function indexes:analyze-range-indexes($xconf) {
                 <td>{
                     if (empty($nodeset)) then ()
                     else
-                        <a href="{indexes:replace-parameters((
+                        <a href="index-keys.html{indexes:replace-parameters((
                             if ($qname) then concat('node-name=', $qname) else concat('match=', $match)
                             , 
                             concat('collection=', $collection)
@@ -460,7 +442,7 @@ declare function indexes:analyze-ngram-indexes($xconf) {
                 <td>{
                     if (not(empty($nodeset))) then 
                         (
-                        <a href="{indexes:replace-parameters((
+                        <a href="index-keys.html{indexes:replace-parameters((
                             concat('node-name=', $qname)
                             , 
                             concat('collection=', $collection)
@@ -471,7 +453,7 @@ declare function indexes:analyze-ngram-indexes($xconf) {
                         ))}">QName</a>, 
                         ', '
                         ,
-                        <a href="{indexes:replace-parameters((
+                        <a href="index-keys.html{indexes:replace-parameters((
                             concat('node-name=', $qname)
                             , 
                             concat('collection=', $collection)
